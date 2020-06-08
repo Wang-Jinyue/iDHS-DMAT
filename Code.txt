@@ -1,0 +1,225 @@
+library(ggplot2)
+x<-c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+y1<-c(0.9613,0.9317,0.9317,0.9557,0.9096,0.9151,0.9207,0.941,0.9354,0.9299,
+      0.9262,0.9336,0.9446,0.9391,0.9299,0.9502,0.9207,0.9428,0.9391,0.9613)
+y2<-c(0.9366,0.946,0.939,0.9507,0.9507,0.9437,0.9413,0.9531,0.9413,0.9343,
+      0.9577,0.9319,0.9366,0.939,0.9413,0.9577,0.9554,0.9343,0.9413,0.9343)
+y3<-c(0.9648,0.9613,0.9401,0.9296,0.919,0.9472,0.9577,0.9225,0.9296,0.9542,
+      0.9577,0.9718,0.9261,0.9437,0.9261,0.9683,0.9507,0.9577,0.9401,0.9401)
+par(mfrow=c(1,3))
+plot(x,y1,xlab = "times", ylab = "ACC",main = "p=0.618")
+abline(h=mean(y1))
+plot(x,y2,xlab = "times", ylab = "ACC",main = "p=0.7")
+abline(h=mean(y2))
+plot(x,y3,xlab = "times", ylab = "ACC",main = "p=0.8")
+abline(h=mean(y3))
+
+
+
+
+
+x<-read.csv("E:\\paper one\\data two\\csv\\Kmer+DACC+PCPseDNC_MRMR 1000.csv")
+library(rpart)
+install.packages("maptree")
+library(maptree)
+library(cluster)
+rpart.fit<-rpart(Class~.,data = x)
+draw.tree(rpart.fit)
+
+rpart.fit$variable.importance
+barplot(rpart.fit$variable.importance)
+
+
+
+
+
+library(caret)
+library(lattice)
+library(ggplot2)
+x<-read.csv("E:\\paper one\\data two\\csv\\Kmer+DACC+PCPseDNC_MRMR 500.csv")
+x$Class<-as.factor(x$Class)
+y<-upSample(subset(x,select = -Class),x$Class)
+z<-downSample(subset(y,select = -Class),y$Class)
+table(z$Class)
+write.csv(z,file="E:\\paper one\\data two\\csv\\test\\0.8\\20.csv")
+
+install.packages("randomForest")
+library(randomForest)
+parts<-createDataPartition(z$Class,p=0.8)
+z_train<-z[parts$Resample1,]
+z_test<-z[-parts$Resample1,]
+rf<-randomForest(Class~.,data =z_train,ntree=600,mtry=1)
+confusionMatrix(z_test$Class,
+                predict(rf,newdata = z_test,type = "class"))
+
+
+
+library(randomForest)
+parts<-createDataPartition(z$Class,p=0.618)
+z_train<-z[parts$Resample1,]
+z_test<-z[-parts$Resample1,]
+err<-as.numeric()
+for(i in 1:(length(names(z_train)))-1){
+  mtry_test<-randomForest(Class~.,data = z_train,mtry=i)
+  err<-append(err,mean(mtry_test$err.rate))
+}
+print(err)
+mtry<-which.min(err)
+mtry
+ntree_fit<-randomForest(Class~., data = z_train, mtry=mtry, ntree=500)
+plot(ntree_fit)
+write.csv(err,"C:\\Users\\Jensen Wang\\Documents\\Tencent Files\\2036848029\\FileRecv\\err.csv")
+
+##Dimensionality reduction##
+clear all
+close all
+clc;
+
+data=xlsread('F:\experiment_1\test4\total.xlsx')
+lab(1:280,1)=1;lab(281:1017,1)=2;
+
+len=size(data,1);
+%归一化
+maxV=max(data);
+minV=min(data);
+range=maxV-minV;
+newdata=(data-repmat(minV,[len,1]))./(repmat(range,[len,1]));
+feature_num=size(newdata,2);
+
+rank1=[];
+for i = 1:size(newdata,2)
+    rank1 = [rank1; mutual_inf(newdata(:,i),lab) i]; 
+end
+
+rank1=sortrows(rank1,1);    
+w=rank1(1:feature_num, 1);
+r=rank1(1:feature_num, 2);
+
+num_select=350;
+
+self_rank=zeros(num_select,num_select);
+choose_data=newdata(:,r(1:num_select));
+for i=1:num_select-1
+    for j=i+1:num_select
+        self_rank(i,j) = self_mutual_inf(newdata(:,i),newdata(:,j));
+        self_rank(j,i) = self_rank(i,j);
+    end
+end
+
+for i=1:num_select
+    self_rank(i,i)=1;
+end
+
+rank2=[mean(self_rank,2) r(1:num_select)];
+rank1(1:num_select,1)=-rank1(1:num_select,1);
+max_rank1=max(rank1(1:num_select,1));
+max_rank2=max(rank2(:,1));
+min_rank1=min(rank1(1:num_select,1));
+min_rank2=min(rank2(:,1));
+range1=max_rank1-min_rank1;
+range2=max_rank2-min_rank2;
+rank1(1:num_select,1)=(rank1(1:num_select,1)-min_rank1)/range1;
+rank2(:,1)=(rank2(:,1)-min_rank2)/range2;
+
+
+RANK=[(rank1(1:num_select,1)-rank2(1:num_select,1)) r(1:num_select)];
+RANK=sortrows(RANK,-1);
+
+data=[];
+for i=1:num_select
+    data=[data newdata(1:1017,RANK(i,2))];
+end
+
+lab(1:280,1)=1;lab(281:1017,1)=0;
+
+data=[data lab];
+xlswrite('F:\experiment_1\test4\data1.xlsx',data);
+
+
+
+function mi = mutual_inf(X, Y)
+num=size(X,1);
+Z=[X Y];
+%将X分成X_interval=10个区间,利用频率计算每个区间的的概率值,team储存每个区间的起始值（中间值-区间长度的一半）
+X_interval=20;
+[pX,team]=hist(X, X_interval);
+pX=pX./num;
+team=team-(max(X)-min(X))/(2*X_interval);
+%不能使某一区间的概率为0
+i = find(pX == 0);
+pX(i) = 0.00001;
+%利用频率计算标签的的概率值
+pY=[length(find(Y==1)) length(find(Y==2))]/num;
+Y_interval=length(pY);
+%利用频率计算XY联合概率密度
+pXY=zeros(Y_interval,X_interval);
+for i=1:Y_interval
+    for j=1:X_interval
+        if(j==X_interval)
+            count=((Z(:,1)>=team(j))&(Z(:,2)==i));
+        else
+            count=((Z(:,1)<team(j+1))&(Z(:,1)>=team(j))&(Z(:,2)==i));
+        end
+        pXY(i,j)=length(find(count==1))/num;
+        if(pXY(i,j)==0)
+            pXY(i,j)=0.00001;
+        end
+    end
+end
+HX=-sum(pX .* log(pX));%计算数据的信息熵
+HY=-sum(pY .* log(pY));%计算标签的信息熵
+pX=repmat(pX,Y_interval,1);
+pY=repmat(pY',1,X_interval);
+mi=-sum(sum(pXY.*log(pXY./(pX.*pY))));
+end
+
+
+
+function self_mi = self_mutual_inf(X, Y)
+num=size(X,1);
+Z=[X Y];
+%将X分成X_interval=10个区间,利用频率计算每个区间的的概率值,team储存每个区间的起始值（中间值-区间长度的一半）
+X_interval=20;
+[pX,team1]=hist(X, X_interval);
+pX=pX./num;
+team1=team1-(max(X)-min(X))/(2*X_interval);
+
+%将Y分成X_interval=10个区间,利用频率计算每个区间的的概率值,team储存每个区间的起始值（中间值-区间长度的一半）
+Y_interval=20;
+[pY,team2]=hist(Y, Y_interval);
+pY=pY./num;
+team2=team2-(max(Y)-min(Y))/(2*Y_interval);
+
+%不能使某一区间的概率为0
+i = find(pX == 0);
+pX(i) = 0.00001;
+i = find(pY == 0);
+pY(i) = 0.00001;
+
+%利用频率计算XY联合概率密度
+pXY=zeros(Y_interval,X_interval);
+for i=1:Y_interval
+    if(i==Y_interval)
+        count_y=(Z(:,2)>=team2(i));
+    else
+        count_y=(Z(:,2)<team2(i+1))&(Z(:,2)>=team2(i));
+    end
+    for j=1:X_interval
+        if(j==X_interval)
+            count_x=(Z(:,1)>=team1(j));
+        else
+            count_x=((Z(:,1)<team1(j+1))&(Z(:,1)>=team1(j)));
+        end
+        count=count_y&count_x;
+        pXY(i,j)=length(find(count==1))/num;
+        if(pXY(i,j)==0)
+            pXY(i,j)=0.00001;
+        end
+    end
+end
+HX=-sum(pX .* log(pX));%计算数据的信息熵
+HY=-sum(pY .* log(pY));%计算标签的信息熵
+pX=repmat(pX,Y_interval,1);
+pY=repmat(pY',1,X_interval);
+self_mi=sum(sum(pXY.*log(pXY./(pX.*pY))));
+end
