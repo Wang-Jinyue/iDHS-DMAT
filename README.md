@@ -1,2 +1,2 @@
 # iDHS-DMAT
-iDHS-JMAT: Identifying DNase I hypersensitive sites in human genome using double dimensionality reduction and multiple average test
+iDHS-DMAT: Identifying DNase I hypersensitive sites in human genome using double dimensionality reduction and multiple average test
